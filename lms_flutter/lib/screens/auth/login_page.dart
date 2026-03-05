@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_staggered_animations/flutter_staggered_animations.dart';
 import 'package:http/http.dart' as http;
+import 'package:lms_flutter/screens/lecturer/lecturer_dashboard.dart';
 import 'dart:convert';
-import 'main.dart';
+import '../../main.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
@@ -19,48 +20,65 @@ class _LoginPageState extends State<LoginPage> {
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
-  Future<void> _handleLogin() async {
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      _showSnackBar("Email dan password wajib diisi!", Colors.orange);
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final response = await http.post(
-        // Sesuaikan IP Hotspot kamu di sini
-        Uri.parse('http://10.114.52.108:8000/api/login'),
-        headers: {'Accept': 'application/json'},
-        body: {
-          'email': _emailController.text,
-          'password': _passwordController.text,
-        },
-      );
-
-      final data = json.decode(response.body);
-
-      if (response.statusCode == 200 && data['success'] == true) {
-        _showSnackBar(data['message'], Colors.green);
-        if (!mounted) return;
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => DashboardPage(userData: data['user'])),
-        );
-      } else {
-        _showSnackBar(data['message'] ?? "Login Gagal", Colors.redAccent);
-      }
-    } catch (e) {
-      _showSnackBar("Gagal terhubung ke server!", Colors.red);
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
+Future<void> _handleLogin() async {
+  if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+    _showSnackBar("Email dan password wajib diisi!", Colors.orange);
+    return;
   }
+
+  setState(() => _isLoading = true);
+
+  try {
+    final response = await http.post(
+      Uri.parse('http://10.36.134.108:8000/api/login'),
+      headers: {'Accept': 'application/json'},
+      body: {
+        'email': _emailController.text,
+        'password': _passwordController.text,
+      },
+    );
+
+    final data = json.decode(response.body);
+    
+    // Pastikan Laravel mengirim 'token' di dalam JSON respon login
+    if (response.statusCode == 200 && data['success'] == true) {
+      String userRole = data['user']['role'] ?? 'student';
+      String token = data['token'] ?? ""; // <-- TANGKAP TOKEN DI SINI
+
+      debugPrint("LOGIN BERHASIL! TOKEN: $token");
+
+      if (!mounted) return;
+
+      Widget targetPage;
+      if (userRole == 'lecturer') {
+        // TERUSKAN TOKEN KE DASHBOARD
+        targetPage = LecturerDashboard(userData: data['user'], token: token);
+      } else {
+        targetPage = DashboardPage(userData: data['user']);
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => targetPage),
+      );
+    } else {
+      _showSnackBar(data['message'] ?? "Login Gagal", Colors.redAccent);
+    }
+  } catch (e) {
+    debugPrint("ERROR LOGIN: $e");
+    _showSnackBar("Gagal terhubung ke server!", Colors.red);
+  } finally {
+    if (mounted) setState(() => _isLoading = false);
+  }
+}
 
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message, style: const TextStyle(fontWeight: FontWeight.w500)),
+        content: Text(
+          message,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
         backgroundColor: color,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -83,7 +101,11 @@ class _LoginPageState extends State<LoginPage> {
                   height: 320,
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(
-                      colors: [Color(0xFF1E3A8A), Color(0xFF3B82F6), Color(0xFF60A5FA)],
+                      colors: [
+                        Color(0xFF1E3A8A),
+                        Color(0xFF3B82F6),
+                        Color(0xFF60A5FA),
+                      ],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
                     ),
@@ -96,7 +118,10 @@ class _LoginPageState extends State<LoginPage> {
                 Positioned(
                   top: -50,
                   right: -50,
-                  child: CircleAvatar(radius: 100, backgroundColor: Colors.white.withOpacity(0.05)),
+                  child: CircleAvatar(
+                    radius: 100,
+                    backgroundColor: Colors.white.withOpacity(0.05),
+                  ),
                 ),
                 SafeArea(
                   child: Center(
@@ -118,9 +143,15 @@ class _LoginPageState extends State<LoginPage> {
                             decoration: BoxDecoration(
                               color: Colors.white.withOpacity(0.2),
                               shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white.withOpacity(0.3)),
+                              border: Border.all(
+                                color: Colors.white.withOpacity(0.3),
+                              ),
                             ),
-                            child: const Icon(Icons.auto_stories_rounded, size: 70, color: Colors.white),
+                            child: const Icon(
+                              Icons.auto_stories_rounded,
+                              size: 70,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),
@@ -135,7 +166,10 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                         Text(
                           "Dimas Febrian Project",
-                          style: GoogleFonts.plusJakartaSans(color: Colors.white70, fontSize: 14),
+                          style: GoogleFonts.plusJakartaSans(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
                         ),
                       ],
                     ),
@@ -159,12 +193,19 @@ class _LoginPageState extends State<LoginPage> {
                     children: [
                       Text(
                         "Selamat Datang!",
-                        style: GoogleFonts.plusJakartaSans(fontSize: 26, fontWeight: FontWeight.bold, color: const Color(0xFF1E293B)),
+                        style: GoogleFonts.plusJakartaSans(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                          color: const Color(0xFF1E293B),
+                        ),
                       ),
                       const SizedBox(height: 8),
-                      const Text("Silahkan login untuk melanjutkan proses belajar.", style: TextStyle(color: Colors.grey, fontSize: 15)),
+                      const Text(
+                        "Silahkan login untuk melanjutkan proses belajar.",
+                        style: TextStyle(color: Colors.grey, fontSize: 15),
+                      ),
                       const SizedBox(height: 35),
-                      
+
                       _buildLabel("Email Mahasiswa"),
                       const SizedBox(height: 10),
                       _buildTextField(
@@ -172,7 +213,7 @@ class _LoginPageState extends State<LoginPage> {
                         hint: "nama@mhs.ac.id",
                         icon: Icons.alternate_email_rounded,
                       ),
-                      
+
                       const SizedBox(height: 20),
                       _buildLabel("Password"),
                       const SizedBox(height: 10),
@@ -182,20 +223,28 @@ class _LoginPageState extends State<LoginPage> {
                         icon: Icons.lock_person_rounded,
                         isPassword: true,
                         isPasswordVisible: _isPasswordVisible,
-                        onVisibilityToggle: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                        onVisibilityToggle: () => setState(
+                          () => _isPasswordVisible = !_isPasswordVisible,
+                        ),
                       ),
-                      
+
                       const SizedBox(height: 15),
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
                           onPressed: () {},
-                          child: const Text("Lupa Password?", style: TextStyle(color: Color(0xFF2563EB), fontWeight: FontWeight.bold)),
+                          child: const Text(
+                            "Lupa Password?",
+                            style: TextStyle(
+                              color: Color(0xFF2563EB),
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
                         ),
                       ),
-                      
+
                       const SizedBox(height: 10),
-                      
+
                       // Tombol Login dengan Animasi
                       SizedBox(
                         width: double.infinity,
@@ -208,12 +257,30 @@ class _LoginPageState extends State<LoginPage> {
                               backgroundColor: const Color(0xFF2563EB),
                               foregroundColor: Colors.white,
                               elevation: 8,
-                              shadowColor: const Color(0xFF2563EB).withOpacity(0.4),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              shadowColor: const Color(
+                                0xFF2563EB,
+                              ).withOpacity(0.4),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
                             ),
                             child: _isLoading
-                                ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
-                                : Text("MASUK SEKARANG", style: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w700, letterSpacing: 1)),
+                                ? const SizedBox(
+                                    height: 24,
+                                    width: 24,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 3,
+                                    ),
+                                  )
+                                : Text(
+                                    "MASUK SEKARANG",
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1,
+                                    ),
+                                  ),
                           ),
                         ),
                       ),
@@ -229,7 +296,14 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   Widget _buildLabel(String text) {
-    return Text(text, style: GoogleFonts.plusJakartaSans(fontWeight: FontWeight.w700, fontSize: 14, color: const Color(0xFF475569)));
+    return Text(
+      text,
+      style: GoogleFonts.plusJakartaSans(
+        fontWeight: FontWeight.w700,
+        fontSize: 14,
+        color: const Color(0xFF475569),
+      ),
+    );
   }
 
   Widget _buildTextField({
@@ -245,7 +319,11 @@ class _LoginPageState extends State<LoginPage> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5)),
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
         ],
       ),
       child: TextField(
@@ -257,11 +335,20 @@ class _LoginPageState extends State<LoginPage> {
           prefixIcon: Icon(icon, color: const Color(0xFF2563EB), size: 22),
           suffixIcon: isPassword
               ? IconButton(
-                  icon: Icon(isPasswordVisible! ? Icons.visibility_rounded : Icons.visibility_off_rounded, color: Colors.grey, size: 20),
+                  icon: Icon(
+                    isPasswordVisible!
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                    color: Colors.grey,
+                    size: 20,
+                  ),
                   onPressed: onVisibilityToggle,
                 )
               : null,
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide.none,
+          ),
           contentPadding: const EdgeInsets.symmetric(vertical: 18),
         ),
       ),

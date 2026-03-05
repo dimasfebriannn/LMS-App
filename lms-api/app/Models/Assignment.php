@@ -2,21 +2,17 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Attendance extends Model
+class Assignment extends Model
 {
-    use HasFactory;
-
     protected $fillable = [
-        'user_id',
         'course_id',
-        'status',
-        'location'
+        'title',
+        'description',
+        'deadline'
     ];
 
-    // TAMBAHKAN FUNGSI INI
     public function course()
     {
         return $this->belongsTo(Course::class);
